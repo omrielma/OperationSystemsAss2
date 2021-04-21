@@ -77,10 +77,12 @@ uint64
 sys_kill(void)
 {
   int pid;
-
+  int signum;
   if(argint(0, &pid) < 0)
     return -1;
-  return kill(pid);
+  if((argint(1, &signum) < 0) || signum < 0 || signum > 31 )
+    return -1;  
+  return kill(pid,signum);
 }
 
 // return how many clock tick interrupts have occurred
@@ -94,4 +96,44 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+uint64
+sys_sigprocmask(void){
+  int sigmask;
+  if(argint(0, &sigmask) < 0)
+    return -1;
+  return sigprocmask(sigmask);
+}
+
+
+
+uint64
+sys_sigaction(void){
+  int signum;
+  struct sigaction *act;
+  struct sigaction *oldact;
+    if(argint(0, &signum) < 0 || signum > 31 || signum < 0 ||signum==SIGSTOP ||signum == SIGKILL)
+      return -1;  
+    if(argaddr(1,(void*)&act)<0)
+      return -1;
+    if(argaddr(2,(void*)&oldact)<0)
+      return -1;   
+      
+  
+  return sigaction(signum,act,oldact);
+
+{
+  /* data */
+};
+
+
+
+}
+
+uint64 
+sys_sigret(void){
+  sigret();
+  //in fail return -1 ..???
+  return 0;
 }

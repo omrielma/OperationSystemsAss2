@@ -93,11 +93,6 @@ struct proc {
   int xstate;                  // Exit status to be returned to parent's wait
   int pid;                     // Process ID
 
-  uint64 pendingsignals[32];   // Signals table 
-  uint64 signalmask[32];
-  void* signalhandlers[32];
-  struct trapframe* backuptrapframe;
-
   // proc_tree_lock must be held when using this:
   struct proc *parent;         // Parent process
 
@@ -111,4 +106,15 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
 
+  uint pending_signals;
+  uint signal_mask;
+  void* signal_handler[32];
+  uint specific_signal_mask[32];
+  struct trapframe *trapframe_backup;
+  uint signal_mask_backup;
+};
+
+struct sigaction {
+  void (*sa_handler) (int);
+  uint sigmask;
 };

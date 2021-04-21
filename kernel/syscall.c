@@ -71,6 +71,21 @@ argaddr(int n, uint64 *ip)
   return 0;
 }
 
+
+
+int
+argptr(int n, char **pp, int size)
+{
+  int i;
+  struct proc *curproc = myproc();
+ 
+  if(argint(n, &i) < 0)
+    return -1;
+  if(size < 0 || (uint)i >= curproc->sz || (uint)i+size > curproc->sz)
+    return -1;
+  return fetchstr(i, *pp, size);
+}
+
 // Fetch the nth word-sized system call argument as a null-terminated string.
 // Copies into buf, at most max.
 // Returns string length if OK (including nul), -1 if error.
@@ -104,6 +119,10 @@ extern uint64 sys_unlink(void);
 extern uint64 sys_wait(void);
 extern uint64 sys_write(void);
 extern uint64 sys_uptime(void);
+extern uint64 sys_sigprocmask(void);
+extern uint64 sys_sigaction(void);
+extern uint64 sys_sigret(void);
+
 
 static uint64 (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -127,6 +146,9 @@ static uint64 (*syscalls[])(void) = {
 [SYS_link]    sys_link,
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
+[SYS_sigprocmask] sys_sigprocmask,
+[SYS_sigaction] sys_sigaction,
+[SYS_sigret]  sys_sigret,
 };
 
 void

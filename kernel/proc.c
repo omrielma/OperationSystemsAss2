@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include <stddef.h>
 
 struct cpu cpus[NCPU];
 
@@ -119,6 +120,7 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
+
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
@@ -267,6 +269,53 @@ growproc(int n)
   return 0;
 }
 
+
+
+int
+sigprocmask(uint sigmask){
+  struct proc *p = myproc();
+  int oldmask = p->signal_mask;
+  p->signal_mask=sigmask;
+  return oldmask;
+  
+}
+
+
+int
+sigaction (int signum,const struct sigaction *act, struct sigaction *oldact){
+  struct proc *p = myproc();
+  struct sigaction kernelact,kerneloldact;
+
+
+  copyin(p->pagetable,(char*)&kernelact,(uint64)act,sizeof(struct sigaction));
+  copyin(p->pagetable,(char*)&kerneloldact,(uint64)oldact,sizeof(struct sigaction));
+  printf("%p\n",kernelact.sa_handler);
+
+  if(oldact != NULL){
+  kerneloldact.sa_handler=p->signal_handler[signum];
+  kerneloldact.sigmask= p->specific_signal_mask[signum];
+  }
+  p->signal_handler[signum]=kernelact.sa_handler;
+  p->specific_signal_mask[signum]=kernelact.sigmask;
+  return 0;
+}
+
+///kernel signal handlers
+void
+sigret(void) {
+  struct proc *p = myproc();
+  //restore the process original tf and mask(before the changes for the user handler)
+  memmove(p->trapframe, p->trapframe_backup, sizeof(struct trapframe));
+  p->signal_mask = p->signal_mask_backup;
+
+}
+
+void sigkill_handler(void){
+  struct proc *p=myproc();
+  p->killed=1;
+}
+
+
 // Create a new process, copying the parent.
 // Sets up child kernel stack to return as if from fork() system call.
 int
@@ -288,6 +337,10 @@ fork(void)
     return -1;
   }
   np->sz = p->sz;
+
+  //Signals
+    np->signal_mask=p->signal_mask;
+  *(np->signal_handler)=*(p->signal_handler);
 
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
@@ -575,8 +628,29 @@ wakeup(void *chan)
 // Kill the process with the given pid.
 // The victim won't exit until it tries to return
 // to user space (see usertrap() in trap.c).
+// int
+// kill(int pid)
+// {
+//   struct proc *p;
+
+//   for(p = proc; p < &proc[NPROC]; p++){
+//     acquire(&p->lock);
+//     if(p->pid == pid){
+//       p->killed = 1;
+//       if(p->state == SLEEPING){
+//         // Wake process from sleep().
+//         p->state = RUNNABLE;
+//       }
+//       release(&p->lock);
+//       return 0;
+//     }
+//     release(&p->lock);
+//   }
+//   return -1;
+// }
+
 int
-kill(int pid)
+kill(int pid,int signum)
 {
   struct proc *p;
 
@@ -595,6 +669,7 @@ kill(int pid)
   }
   return -1;
 }
+
 
 // Copy to either a user address, or kernel address,
 // depending on usr_dst.
@@ -654,3 +729,4 @@ procdump(void)
     printf("\n");
   }
 }
+
